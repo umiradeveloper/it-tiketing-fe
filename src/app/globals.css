@@ -1,0 +1,95 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  body {
+    @apply bg-paper text-text font-sans;
+    font-feature-settings: 'tnum' 1, 'cv11' 1;
+  }
+  :focus-visible {
+    outline: 2px solid #13707a;
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+  ::selection {
+    background: #cfe6e7;
+  }
+}
+
+@layer components {
+  .panel {
+    @apply bg-white border border-line rounded-panel;
+  }
+  .input {
+    @apply w-full rounded-lg border border-line-strong bg-white px-3 py-2 text-sm text-text placeholder:text-text-faint
+      focus:border-teal focus:outline-none focus:ring-2 focus:ring-teal/20 disabled:bg-paper disabled:text-text-muted;
+  }
+  .label {
+    @apply mb-1.5 block text-sm font-semibold text-text;
+  }
+  .hint {
+    @apply mt-1 text-xs text-text-muted;
+  }
+  .link {
+    @apply font-semibold text-teal hover:text-teal-600 hover:underline underline-offset-2;
+  }
+  .table-head th {
+    @apply px-4 py-2.5 text-left text-xs font-semibold text-text-muted bg-paper/60 border-b border-line whitespace-nowrap;
+  }
+  .table-body td {
+    @apply px-4 py-3 text-sm border-b border-line/70 align-middle;
+  }
+  .prose-kb h2 {
+    @apply mt-6 mb-2 text-lg font-bold text-ink;
+  }
+  .prose-kb h3 {
+    @apply mt-4 mb-1.5 font-bold text-ink;
+  }
+  .prose-kb p {
+    @apply my-3 leading-7;
+  }
+  .prose-kb ul {
+    @apply my-3 list-disc pl-6 space-y-1.5 leading-7;
+  }
+  .prose-kb ol {
+    @apply my-3 list-decimal pl-6 space-y-1.5 leading-7;
+  }
+  .prose-kb strong {
+    @apply font-bold text-ink;
+  }
+  .prose-kb code {
+    @apply rounded bg-paper px-1.5 py-0.5 text-[0.9em];
+  }
+}
+
+/* Latar blueprint halaman login — mengambil bahasa gambar kerja konstruksi */
+.blueprint {
+  background-color: #0e3b43;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.06) 1px, transparent 1px),
+    linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+  background-size: 96px 96px, 96px 96px, 16px 16px, 16px 16px;
+}
+
+/* Sumbu SLA: bagian yang "terbakar" saat terlambat */
+.fuse-overdue {
+  background-image: repeating-linear-gradient(-45deg, #b42318 0 6px, #d4483c 6px 12px);
+  background-size: 16px 100%;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
