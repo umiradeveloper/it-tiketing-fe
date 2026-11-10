@@ -94,7 +94,8 @@ interface SuperappsStatus {
   requireApproval: boolean;
   mirrored: number;
   active: number;
-  lastSync: { total: number; created: number; updated: number; deactivated: number; failed: number; at: string } | null;
+  lastSync: { total: number; internal?: number; skipped?: number; created: number; updated: number; deactivated: number; failed: number; at: string } | null;
+  roles?: Array<{ name: string | null; users: number; blocked: boolean; maps: string[] }>;
 }
 
 function SuperappsBar({ onSynced }: { onSynced: () => void }) {
@@ -112,8 +113,8 @@ function SuperappsBar({ onSynced }: { onSynced: () => void }) {
   const sync = async () => {
     setBusy(true);
     try {
-      const r = await api.post<{ total: number; created: number; deactivated: number }>('/admin/superapps/sync');
-      toast(`Sinkron selesai: ${r.total} user, ${r.created} baru, ${r.deactivated} dinonaktifkan`);
+      const r = await api.post<{ total: number; internal: number; skipped: number; created: number; deactivated: number }>('/admin/superapps/sync');
+      toast(`Sinkron selesai: ${r.internal} user internal (${r.created} baru), ${r.skipped} dilewati, ${r.deactivated} dinonaktifkan`);
       mutate();
       onSynced();
     } catch (e) {
@@ -132,13 +133,41 @@ function SuperappsBar({ onSynced }: { onSynced: () => void }) {
         <p className="mt-0.5 text-xs text-text-muted">
           {data.reachable === false && data.error ? `${data.error}. ` : ''}
           {data.active} dari {data.mirrored} akun Superapps aktif di helpdesk.
-          {data.lastSync ? ` Sinkron terakhir ${fmtDateTime(data.lastSync.at)} (${data.lastSync.total} user).` : ' Belum pernah disinkronkan.'}
+          {data.lastSync
+            ? ` Sinkron terakhir ${fmtDateTime(data.lastSync.at)}: ${data.lastSync.internal ?? data.lastSync.total} user internal${data.lastSync.skipped ? `, ${data.lastSync.skipped} dilewati karena perannya tidak punya akses` : ''}.`
+            : ' Belum pernah disinkronkan.'}
           {data.requireApproval ? ' Hanya user yang sudah disetujui (isApproval = 1) yang bisa login.' : ''}
         </p>
       </div>
       <Button variant="secondary" loading={busy} onClick={sync}>
         Sinkronkan sekarang
       </Button>
+      {!!data.roles?.length && (
+        <details className="w-full border-t border-line pt-3 text-sm">
+          <summary className="cursor-pointer font-semibold text-teal">Pemetaan peran Superapps ke helpdesk</summary>
+          <p className="mt-2 text-xs text-text-muted">
+            Diatur di <code className="rounded bg-paper px-1">SUPERAPPS_ROLE_MAP</code> dan <code className="rounded bg-paper px-1">SUPERAPPS_BLOCKED_ROLES</code> pada .env backend. Role tambahan bisa diberikan per pengguna di bawah.
+          </p>
+          <div className="mt-2 grid gap-x-6 gap-y-1 sm:grid-cols-2 lg:grid-cols-3">
+            {data.roles.map((r) => (
+              <div key={r.name ?? 'none'} className="flex items-center justify-between gap-2 border-b border-line/60 py-1.5">
+                <span className="truncate">
+                  {r.name ?? 'Tanpa peran'} <span className="text-xs text-text-faint">{r.users}</span>
+                </span>
+                {r.blocked ? (
+                  <Badge tone="danger">Tidak punya akses</Badge>
+                ) : (
+                  <span className="flex flex-wrap justify-end gap-1">
+                    {r.maps.map((m) => (
+                      <Badge key={m} tone={m === 'REQUESTER' ? 'neutral' : 'teal'}>{ROLE_LABEL[m] ?? m}</Badge>
+                    ))}
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        </details>
+      )}
     </div>
   );
 }
@@ -258,7 +287,7 @@ function UserModal({ user, onClose, onSaved }: { user: AdminUser | null; onClose
     setError(null);
     const synced = user?.authSource === 'SUPERAPPS';
     const base = synced
-      ? { departmentId: f.departmentId, locationId: f.locationId, managerId: f.managerId, teamId: f.teamId, position: f.position, roles: f.roles, isActive: f.isActive }
+      ? { departmentId: f.departmentId, locationId: f.locationId, managerId: f.managerId, teamId: f.teamId, roles: f.roles, isActive: f.isActive }
       : f;
     const body = {
       ...base,
@@ -267,7 +296,7 @@ function UserModal({ user, onClose, onSaved }: { user: AdminUser | null; onClose
       managerId: f.managerId || null,
       teamId: f.teamId || null,
       ...(synced
-        ? { position: f.position || undefined }
+        ? {}
         : { vendorCompany: f.vendorCompany || undefined, phone: f.phone || undefined, position: f.position || undefined, password: f.password || undefined }),
     };
     try {
@@ -299,7 +328,7 @@ function UserModal({ user, onClose, onSaved }: { user: AdminUser | null; onClose
     >
       {user?.authSource === 'SUPERAPPS' && (
         <p className="mb-4 rounded-lg bg-teal-50 px-3 py-2 text-xs text-teal">
-          Akun dari Superapps (id {user.externalId}{user.externalRoleId ? `, role ${user.externalRoleId}` : ''}{user.externalBranchId ? `, cabang ${user.externalBranchId}` : ''}). Nama, NIP, email, nomor HP, dan password dikelola di Superapps dan disinkronkan otomatis.
+          Akun dari Superapps{user.position ? `, peran ${user.position}` : ''}. Nama, username/NIP, email, nomor HP, peran (jabatan), dan password dikelola di Superapps dan disinkronkan otomatis.
           Di sini Anda mengatur role helpdesk, tim, atasan, dan lokasi.
         </p>
       )}
@@ -308,7 +337,7 @@ function UserModal({ user, onClose, onSaved }: { user: AdminUser | null; onClose
         <Field label="NIK / kode" required><Input value={f.employeeCode} disabled={user?.authSource === 'SUPERAPPS'} onChange={(e) => setF({ ...f, employeeCode: e.target.value })} /></Field>
         <Field label="Email" required><Input type="email" value={f.email.endsWith('.invalid') ? '' : f.email} placeholder={f.email.endsWith('.invalid') ? 'Tidak ada email di Superapps' : undefined} disabled={user?.authSource === 'SUPERAPPS'} onChange={(e) => setF({ ...f, email: e.target.value })} /></Field>
         <Field label="Telepon"><Input value={f.phone} disabled={user?.authSource === 'SUPERAPPS'} onChange={(e) => setF({ ...f, phone: e.target.value })} /></Field>
-        <Field label="Jabatan"><Input value={f.position} onChange={(e) => setF({ ...f, position: e.target.value })} /></Field>
+        <Field label={user?.authSource === 'SUPERAPPS' ? 'Peran Superapps' : 'Jabatan'}><Input value={f.position} disabled={user?.authSource === 'SUPERAPPS'} onChange={(e) => setF({ ...f, position: e.target.value })} /></Field>
         <Field label="Divisi">
           <Select value={f.departmentId} onChange={(e) => setF({ ...f, departmentId: e.target.value })}>
             <option value="">—</option>
